@@ -20,10 +20,19 @@ Home decor sellers face a double challenge: the product itself is often invisibl
 
 ## Skills & APIs You Need
 
+- **[Amazon Image Auto Skill](../skills/amazon-image-auto.md)** — install this skill to get automatic product-type detection and pipeline routing (no manual configuration needed)
 - **Google Gemini Vision API** — multi-image product understanding (`gemini-2.0-flash` or `gemini-2.5-pro`)
 - **Google Imagen 3 API** — photorealistic image generation (via Google AI Studio or Vertex AI)
 - OpenClaw file skill — local image upload and export
 - Optional: Google Cloud Storage skill for batch asset management
+
+### Quick Install
+
+```text
+Install this skill: https://github.com/calvinkakachen/awesome-openclaw-usecases/blob/main/skills/amazon-image-auto.md
+```
+
+Once installed, just upload your product photo — the skill automatically detects whether to run the compositing pipeline (window film, decals) or 3D modeling pipeline (hardware, solid products).
 
 > **API Access**: Both Gemini and Imagen 3 are available through [Google AI Studio](https://aistudio.google.com) (free tier available) or [Google Cloud Vertex AI](https://cloud.google.com/vertex-ai/generative-ai/docs/image/overview) (pay-per-use).
 

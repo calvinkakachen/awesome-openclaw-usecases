@@ -97,6 +97,14 @@ Solving the bottleneck of OpenClaw adaptation: Not ~~skills~~, but finding **way
 |------|-------------|
 | [Polymarket Autopilot](usecases/polymarket-autopilot.md) | Automated paper trading on prediction markets with backtesting, strategy analysis, and daily performance reports. |
 
+## Skills
+
+Reusable OpenClaw skills that power the use cases above.
+
+| Skill | Description |
+|-------|-------------|
+| [Amazon Image Auto](skills/amazon-image-auto.md) | Upload any product photo — auto-detects whether to run compositing (film/decal), hardware 3D modeling, fabric draping, or solid product rendering, then generates the full Amazon image suite. |
+
 ## 🤝 Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
