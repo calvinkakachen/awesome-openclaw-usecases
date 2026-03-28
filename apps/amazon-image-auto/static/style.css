@@ -294,5 +294,46 @@ main {
 }
 #results-count { color: var(--muted); font-size: .875rem; }
 
+/* API Key section */
+.apikey-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.apikey-row input {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: .9rem;
+  font-family: monospace;
+  outline: none;
+  transition: border-color .2s;
+}
+.apikey-row input:focus { border-color: var(--primary); }
+.apikey-status {
+  margin-top: 10px;
+  font-size: .875rem;
+  font-weight: 600;
+}
+.apikey-status.ok    { color: var(--success); }
+.apikey-status.error { color: #ef4444; }
+
+/* Locked state */
+.card.locked {
+  opacity: .5;
+  pointer-events: none;
+}
+.card.locked::after {
+  content: '请先输入 API Key';
+  display: block;
+  text-align: center;
+  color: var(--muted);
+  font-size: .8rem;
+  margin-top: 8px;
+}
+
 /* Utilities */
 .hidden { display: none !important; }

@@ -25,11 +25,11 @@ PIPELINES = {
 
 
 class ImageGenerator:
-    def __init__(self):
-        api_key = os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GOOGLE_API_KEY environment variable is not set")
-        self.client = genai.Client(api_key=api_key)
+    def __init__(self, api_key: str = ""):
+        key = api_key.strip() or os.environ.get("GOOGLE_API_KEY", "")
+        if not key:
+            raise RuntimeError("GOOGLE_API_KEY not provided")
+        self.client = genai.Client(api_key=key)
 
     async def generate(
         self, profile: dict, output_dir: Path

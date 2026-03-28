@@ -15,9 +15,30 @@
   </header>
 
   <main>
+    <!-- ── Step 0: API Key ── -->
+    <section id="apikey-section" class="card">
+      <h2>① 输入 Google API Key</h2>
+      <p class="hint">
+        Key 仅在本次会话中使用，不会上传或存储到服务器。
+        前往 <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> 免费获取。
+      </p>
+      <div class="apikey-row">
+        <input
+          id="apikey-input"
+          type="password"
+          placeholder="AIza..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="apikey-toggle" class="btn btn-secondary" type="button">显示</button>
+        <button id="apikey-save" class="btn btn-primary" type="button">确认</button>
+      </div>
+      <p id="apikey-status" class="apikey-status hidden"></p>
+    </section>
+
     <!-- ── Step 1: Upload ── -->
-    <section id="upload-section" class="card">
-      <h2>① 上传产品图片</h2>
+    <section id="upload-section" class="card locked">
+      <h2>② 上传产品图片</h2>
       <p class="hint">支持 JPG / PNG / WEBP，可多张上传（建议 3–8 张不同角度）</p>
 
       <div id="drop-zone" class="drop-zone">
@@ -35,15 +56,17 @@
 
     <!-- ── Step 2: Detection result ── -->
     <section id="detection-section" class="card hidden">
-      <h2>② 识别结果</h2>
+      <h2>③ 识别结果</h2>
       <div id="detection-result" class="detection-result"></div>
-      <button id="generate-btn" class="btn btn-primary">生成图集</button>
-      <button id="reupload-btn" class="btn btn-secondary">重新上传</button>
+      <div class="detection-actions">
+        <button id="generate-btn" class="btn btn-primary">生成图集</button>
+        <button id="reupload-btn" class="btn btn-secondary">重新上传</button>
+      </div>
     </section>
 
     <!-- ── Step 3: Generation progress ── -->
     <section id="progress-section" class="card hidden">
-      <h2>③ 生成中</h2>
+      <h2>④ 生成中</h2>
       <div class="progress-bar-wrap">
         <div id="progress-bar" class="progress-bar"></div>
       </div>
@@ -53,7 +76,7 @@
 
     <!-- ── Step 4: Results ── -->
     <section id="results-section" class="card hidden">
-      <h2>④ 完成</h2>
+      <h2>⑤ 完成</h2>
       <div class="results-header">
         <span id="results-count"></span>
         <button id="download-btn" class="btn btn-primary">下载全部 ZIP</button>

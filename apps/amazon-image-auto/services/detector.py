@@ -50,11 +50,11 @@ If confidence is "low", set product_type to your best guess and explain in detec
 
 
 class ProductDetector:
-    def __init__(self):
-        api_key = os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GOOGLE_API_KEY environment variable is not set")
-        genai.configure(api_key=api_key)
+    def __init__(self, api_key: str = ""):
+        key = api_key.strip() or os.environ.get("GOOGLE_API_KEY", "")
+        if not key:
+            raise RuntimeError("GOOGLE_API_KEY not provided")
+        genai.configure(api_key=key)
         self.model = genai.GenerativeModel("gemini-2.0-flash")
 
     async def analyze(self, image_paths: list[str]) -> dict:

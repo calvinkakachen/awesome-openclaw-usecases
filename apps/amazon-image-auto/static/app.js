@@ -6,12 +6,63 @@ const $ = id => document.getElementById(id);
 let files = [];
 let sessionId = null;
 let manifest = null;
+let apiKey = '';
+
+// ── API Key section ──
+const apikeyInput  = $('apikey-input');
+const apikeyToggle = $('apikey-toggle');
+const apikeySave   = $('apikey-save');
+const apikeyStatus = $('apikey-status');
+const uploadSection = $('upload-section');
+
+// Restore from sessionStorage (stays for current tab only)
+const saved = sessionStorage.getItem('google_api_key');
+if (saved) {
+  apikeyInput.value = saved;
+  activateKey(saved);
+}
+
+apikeyToggle.addEventListener('click', () => {
+  const show = apikeyInput.type === 'password';
+  apikeyInput.type = show ? 'text' : 'password';
+  apikeyToggle.textContent = show ? '隐藏' : '显示';
+});
+
+apikeySave.addEventListener('click', () => {
+  const key = apikeyInput.value.trim();
+  if (!key) {
+    showKeyStatus('请输入 API Key', 'error');
+    return;
+  }
+  if (!key.startsWith('AIza')) {
+    showKeyStatus('格式不对，Google API Key 通常以 AIza 开头', 'error');
+    return;
+  }
+  sessionStorage.setItem('google_api_key', key);
+  activateKey(key);
+});
+
+apikeyInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') apikeySave.click();
+});
+
+function activateKey(key) {
+  apiKey = key;
+  showKeyStatus('✓ API Key 已设置，可以上传图片了', 'ok');
+  uploadSection.classList.remove('locked');
+}
+
+function showKeyStatus(msg, type) {
+  apikeyStatus.textContent = msg;
+  apikeyStatus.className = `apikey-status ${type}`;
+  apikeyStatus.classList.remove('hidden');
+}
 
 // ── Upload section ──
-const dropZone   = $('drop-zone');
-const fileInput  = $('file-input');
+const dropZone    = $('drop-zone');
+const fileInput   = $('file-input');
 const previewGrid = $('preview-grid');
-const analyzeBtn = $('analyze-btn');
+const analyzeBtn  = $('analyze-btn');
 
 dropZone.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', e => addFiles([...e.target.files]));
@@ -62,12 +113,14 @@ function renderPreviews() {
 // ── Analyze ──
 analyzeBtn.addEventListener('click', async () => {
   if (files.length === 0) return;
+  if (!apiKey) { alert('请先输入 Google API Key'); return; }
 
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = '识别中…';
 
   const formData = new FormData();
   files.forEach(f => formData.append('files', f));
+  formData.append('api_key', apiKey);
 
   try {
     const res = await fetch('/api/analyze', { method: 'POST', body: formData });
@@ -145,16 +198,13 @@ function startGeneration() {
   $('progress-section').classList.remove('hidden');
   $('live-grid').innerHTML = '';
 
-  const evtSource = new EventSource(`/api/generate/${sessionId}`);
+  const url = `/api/generate/${sessionId}?api_key=${encodeURIComponent(apiKey)}`;
+  const evtSource = new EventSource(url);
   let total = 0;
   let current = 0;
 
   evtSource.onmessage = e => {
     const event = JSON.parse(e.data);
-
-    if (event.type === 'detected') {
-      // Already shown — skip
-    }
 
     if (event.type === 'progress') {
       total = event.total;
@@ -163,14 +213,10 @@ function startGeneration() {
       $('progress-bar').style.width = pct + '%';
       $('progress-label').textContent = `${event.step}（${current}/${total}）`;
 
-      // Add placeholder card
       const card = document.createElement('div');
       card.className = 'result-card generating';
       card.id = `card-${current}`;
-      card.innerHTML = `
-        <img src="" alt="" />
-        <div class="card-label">${event.step}</div>
-      `;
+      card.innerHTML = `<img src="" alt="" /><div class="card-label">${event.step}</div>`;
       $('live-grid').appendChild(card);
     }
 
@@ -179,14 +225,15 @@ function startGeneration() {
       card.classList.remove('generating');
       card.querySelector('img').src = event.url + '?t=' + Date.now();
       card.querySelector('.card-label').textContent = event.label;
-      card.innerHTML += `<div class="card-folder">${folderLabel(event.folder)}</div>`;
+      if (!card.querySelector('.card-folder')) {
+        card.innerHTML += `<div class="card-folder">${folderLabel(event.folder)}</div>`;
+      }
     }
 
     if (event.type === 'image_error') {
       const card = $('card-' + current);
       if (card) {
         card.classList.remove('generating');
-        card.querySelector('img').src = '';
         card.style.background = '#fff0f0';
         card.querySelector('.card-label').textContent = '⚠ 生成失败';
       }
@@ -228,16 +275,11 @@ function showResults() {
   const files = (manifest && manifest.files) || [];
   $('results-count').textContent = `共 ${files.length} 张图片`;
 
-  // Build tabs
   const folders = [...new Set(files.map(f => f.folder))];
   const tabBar = $('tab-bar');
   tabBar.innerHTML = '';
-
-  const allTab = createTab('全部', 'all', true);
-  tabBar.appendChild(allTab);
-  folders.forEach(folder => {
-    tabBar.appendChild(createTab(folderLabel(folder), folder, false));
-  });
+  tabBar.appendChild(createTab('全部', 'all', true));
+  folders.forEach(folder => tabBar.appendChild(createTab(folderLabel(folder), folder, false)));
 
   renderResultGrid('all', files);
 
@@ -262,27 +304,20 @@ function renderResultGrid(folder, files) {
   const grid = $('result-grid');
   grid.innerHTML = '';
   const filtered = folder === 'all' ? files : files.filter(f => f.folder === folder);
-
   filtered.forEach(file => {
     const card = document.createElement('div');
     card.className = 'result-card';
+    card.style.cursor = 'pointer';
     card.innerHTML = `
       <img src="${file.url}?t=${Date.now()}" alt="${file.label}" loading="lazy" />
       <div class="card-label">${file.label}</div>
       <div class="card-folder">${folderLabel(file.folder)} · ${file.dimensions || ''}</div>
     `;
-    card.querySelector('img').addEventListener('click', () => {
-      window.open(file.url, '_blank');
-    });
-    card.style.cursor = 'pointer';
+    card.querySelector('img').addEventListener('click', () => window.open(file.url, '_blank'));
     grid.appendChild(card);
   });
 }
 
 function folderLabel(folder) {
-  return {
-    'renders':      '白底渲染图',
-    'lifestyle':    '生活场景图',
-    'amazon-aplus': 'Amazon A+',
-  }[folder] || folder;
+  return { 'renders': '白底渲染图', 'lifestyle': '生活场景图', 'amazon-aplus': 'Amazon A+' }[folder] || folder;
 }
