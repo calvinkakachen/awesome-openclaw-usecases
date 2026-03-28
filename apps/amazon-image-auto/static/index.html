@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amazon Image Auto</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>Amazon Image Auto</h1>
+      <p>上传产品图片 → AI 自动识别类型 → 生成完整亚马逊图集</p>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── Step 1: Upload ── -->
+    <section id="upload-section" class="card">
+      <h2>① 上传产品图片</h2>
+      <p class="hint">支持 JPG / PNG / WEBP，可多张上传（建议 3–8 张不同角度）</p>
+
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-icon">📷</div>
+        <p>拖拽图片到此处，或 <label for="file-input" class="file-label">点击选择文件</label></p>
+        <input id="file-input" type="file" accept="image/*" multiple hidden />
+      </div>
+
+      <div id="preview-grid" class="preview-grid hidden"></div>
+
+      <button id="analyze-btn" class="btn btn-primary" disabled>
+        开始识别
+      </button>
+    </section>
+
+    <!-- ── Step 2: Detection result ── -->
+    <section id="detection-section" class="card hidden">
+      <h2>② 识别结果</h2>
+      <div id="detection-result" class="detection-result"></div>
+      <button id="generate-btn" class="btn btn-primary">生成图集</button>
+      <button id="reupload-btn" class="btn btn-secondary">重新上传</button>
+    </section>
+
+    <!-- ── Step 3: Generation progress ── -->
+    <section id="progress-section" class="card hidden">
+      <h2>③ 生成中</h2>
+      <div class="progress-bar-wrap">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+      <p id="progress-label" class="progress-label">准备中…</p>
+      <div id="live-grid" class="result-grid"></div>
+    </section>
+
+    <!-- ── Step 4: Results ── -->
+    <section id="results-section" class="card hidden">
+      <h2>④ 完成</h2>
+      <div class="results-header">
+        <span id="results-count"></span>
+        <button id="download-btn" class="btn btn-primary">下载全部 ZIP</button>
+      </div>
+      <div id="tab-bar" class="tab-bar"></div>
+      <div id="result-grid" class="result-grid"></div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
