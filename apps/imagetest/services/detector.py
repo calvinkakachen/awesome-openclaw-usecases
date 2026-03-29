@@ -1,15 +1,16 @@
 """
 Product type detector using Google Gemini Vision.
 Classifies uploaded images into: COMPOSITE / HARDWARE / FABRIC / SOLID
+Uses the new google-genai SDK (same as generator.py).
 """
 
-import base64
 import json
 import os
 from pathlib import Path
+from typing import List
 
-import google.generativeai as genai
-from PIL import Image
+from google import genai
+from google.genai import types
 
 
 DETECTION_PROMPT = """
@@ -67,27 +68,31 @@ PRODUCT TYPE RULES:
 If confidence is "low", set product_type to your best guess and explain in detection_reason.
 """
 
+MODEL = "gemini-2.0-flash"
+
 
 class ProductDetector:
     def __init__(self, api_key: str = ""):
         key = api_key.strip() or os.environ.get("GOOGLE_API_KEY", "")
         if not key:
             raise RuntimeError("GOOGLE_API_KEY not provided")
-        genai.configure(api_key=key)
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        self.client = genai.Client(api_key=key)
 
-    async def analyze(self, image_paths: list[str]) -> dict:
+    async def analyze(self, image_paths: List[str]) -> dict:
         """Analyze product images and return structured profile dict."""
-        parts = []
+        contents: List[types.Part] = []
 
         for path in image_paths:
             img_bytes = Path(path).read_bytes()
             mime = _mime_type(path)
-            parts.append({"mime_type": mime, "data": img_bytes})
+            contents.append(types.Part.from_bytes(data=img_bytes, mime_type=mime))
 
-        parts.append(DETECTION_PROMPT)
+        contents.append(types.Part.from_text(text=DETECTION_PROMPT))
 
-        response = self.model.generate_content(parts)
+        response = self.client.models.generate_content(
+            model=MODEL,
+            contents=contents,
+        )
         raw = response.text.strip()
 
         # Strip markdown fences if model adds them anyway
