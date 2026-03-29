@@ -1,4 +1,4 @@
-# Amazon Image Auto — Web App
+# imagetest — Web App
 
 上传产品图片，AI 自动识别产品类型，生成完整亚马逊图集。
 

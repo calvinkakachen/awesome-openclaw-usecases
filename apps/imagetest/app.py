@@ -14,7 +14,7 @@ from starlette.responses import StreamingResponse
 from services.detector import ProductDetector
 from services.generator import ImageGenerator
 
-app = FastAPI(title="Amazon Image Auto", version="1.0.0")
+app = FastAPI(title="imagetest", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
