@@ -55,7 +55,7 @@ const apikeySave    = $('apikey-save');
 const apikeyStatus  = $('apikey-status');
 const uploadSection = $('upload-section');
 
-const saved = sessionStorage.getItem('google_api_key');
+const saved = localStorage.getItem('google_api_key');
 if (saved) {
   apikeyInput.value = saved;
   activateKey(saved);
@@ -73,11 +73,21 @@ apikeySave.addEventListener('click', () => {
   if (!key.startsWith('AIza')) {
     showKeyStatus('格式不对，Google API Key 通常以 AIza 开头', 'error'); return;
   }
-  sessionStorage.setItem('google_api_key', key);
+  localStorage.setItem('google_api_key', key);
   activateKey(key);
 });
 
 apikeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') apikeySave.click(); });
+
+$('apikey-clear').addEventListener('click', () => {
+  localStorage.removeItem('google_api_key');
+  localStorage.removeItem('selected_model');
+  apikeyInput.value = '';
+  apiKey = '';
+  showKeyStatus('已清除本地保存的 API Key', 'error');
+  $('model-row').classList.add('hidden');
+  uploadSection.classList.add('locked');
+});
 
 function activateKey(key) {
   apiKey = key;
@@ -102,18 +112,19 @@ async function fetchModels(key) {
     const models = data.models || [];
     if (models.length === 0) throw new Error('未找到可用模型');
 
+    const savedModel = localStorage.getItem('selected_model');
     modelSelect.innerHTML = '';
     models.forEach(m => {
       const opt = document.createElement('option');
       opt.value = m.id;
       opt.textContent = m.display_name || m.id;
+      if (m.id === savedModel) opt.selected = true;
       modelSelect.appendChild(opt);
     });
     modelStatus.textContent = `共 ${models.length} 个模型`;
     showKeyStatus('✓ API Key 已设置，可以上传图片了', 'ok');
   } catch (e) {
     modelStatus.textContent = '获取失败，使用默认模型';
-    // Add default fallback option
     if (modelSelect.options.length === 0) {
       const opt = document.createElement('option');
       opt.value = 'gemini-2.5-flash';
@@ -123,6 +134,11 @@ async function fetchModels(key) {
     logError('获取模型列表', e.message);
   }
 }
+
+// 切换模型时保存到 localStorage
+modelSelect.addEventListener('change', () => {
+  localStorage.setItem('selected_model', modelSelect.value);
+});
 
 modelRefresh.addEventListener('click', () => {
   if (apiKey) fetchModels(apiKey);
