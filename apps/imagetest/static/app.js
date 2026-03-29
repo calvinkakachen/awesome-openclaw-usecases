@@ -48,17 +48,82 @@ $('log-clear-btn').addEventListener('click', () => {
   $('log-section').classList.add('hidden');
 });
 
-// ── API Key section ──
+// ── DOM refs — declare ALL before any logic that uses them ──
 const apikeyInput   = $('apikey-input');
 const apikeyToggle  = $('apikey-toggle');
 const apikeySave    = $('apikey-save');
+const apikeyClear   = $('apikey-clear');
 const apikeyStatus  = $('apikey-status');
 const uploadSection = $('upload-section');
+const modelRow      = $('model-row');
+const modelSelect   = $('model-select');
+const modelRefresh  = $('model-refresh');
+const modelStatus   = $('model-status');
+const dropZone      = $('drop-zone');
+const fileInput     = $('file-input');
+const previewGrid   = $('preview-grid');
+const analyzeBtn    = $('analyze-btn');
 
-const saved = localStorage.getItem('google_api_key');
-if (saved) {
-  apikeyInput.value = saved;
-  activateKey(saved);
+// ── Helper ──
+function showKeyStatus(msg, type) {
+  apikeyStatus.textContent = msg;
+  apikeyStatus.className = `apikey-status ${type}`;
+  apikeyStatus.classList.remove('hidden');
+}
+
+// ── Model selector ──
+async function fetchModels(key) {
+  modelStatus.textContent = '获取中…';
+  modelRow.classList.remove('hidden');
+  try {
+    const res = await fetch(`/api/models?api_key=${encodeURIComponent(key)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+    const models = data.models || [];
+    if (models.length === 0) throw new Error('未找到可用模型');
+
+    const savedModel = localStorage.getItem('selected_model');
+    modelSelect.innerHTML = '';
+    models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.display_name || m.id;
+      if (m.id === savedModel) opt.selected = true;
+      modelSelect.appendChild(opt);
+    });
+    // Save default selection if nothing was saved before
+    if (!savedModel && modelSelect.options.length > 0) {
+      localStorage.setItem('selected_model', modelSelect.value);
+    }
+    modelStatus.textContent = `共 ${models.length} 个模型`;
+    showKeyStatus('✓ API Key 已设置，可以上传图片了', 'ok');
+  } catch (e) {
+    modelStatus.textContent = '获取失败，使用默认模型';
+    if (modelSelect.options.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = 'gemini-2.5-flash';
+      opt.textContent = 'gemini-2.5-flash（默认）';
+      modelSelect.appendChild(opt);
+    }
+    showKeyStatus('✓ API Key 已设置（模型列表获取失败，使用默认）', 'ok');
+    logError('获取模型列表', e.message);
+  }
+}
+
+modelSelect.addEventListener('change', () => {
+  localStorage.setItem('selected_model', modelSelect.value);
+});
+
+modelRefresh.addEventListener('click', () => {
+  if (apiKey) fetchModels(apiKey);
+});
+
+// ── API Key ──
+function activateKey(key) {
+  apiKey = key;
+  showKeyStatus('✓ API Key 已设置，正在获取可用模型…', 'ok');
+  uploadSection.classList.remove('locked');
+  fetchModels(key);
 }
 
 apikeyToggle.addEventListener('click', () => {
@@ -79,84 +144,25 @@ apikeySave.addEventListener('click', () => {
 
 apikeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') apikeySave.click(); });
 
-$('apikey-clear').addEventListener('click', () => {
+apikeyClear.addEventListener('click', () => {
   localStorage.removeItem('google_api_key');
   localStorage.removeItem('selected_model');
   apikeyInput.value = '';
   apiKey = '';
   showKeyStatus('已清除本地保存的 API Key', 'error');
-  $('model-row').classList.add('hidden');
+  modelRow.classList.add('hidden');
+  modelSelect.innerHTML = '';
   uploadSection.classList.add('locked');
 });
 
-function activateKey(key) {
-  apiKey = key;
-  showKeyStatus('✓ API Key 已设置，正在获取可用模型…', 'ok');
-  uploadSection.classList.remove('locked');
-  fetchModels(key);
+// ── Auto-load saved key (AFTER all refs and functions are defined) ──
+const savedKey = localStorage.getItem('google_api_key');
+if (savedKey) {
+  apikeyInput.value = savedKey;
+  activateKey(savedKey);
 }
 
-// ── Model selector ──
-const modelRow     = $('model-row');
-const modelSelect  = $('model-select');
-const modelRefresh = $('model-refresh');
-const modelStatus  = $('model-status');
-
-async function fetchModels(key) {
-  modelStatus.textContent = '获取中…';
-  modelRow.classList.remove('hidden');
-  try {
-    const res = await fetch(`/api/models?api_key=${encodeURIComponent(key)}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
-    const models = data.models || [];
-    if (models.length === 0) throw new Error('未找到可用模型');
-
-    const savedModel = localStorage.getItem('selected_model');
-    modelSelect.innerHTML = '';
-    models.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.display_name || m.id;
-      if (m.id === savedModel) opt.selected = true;
-      modelSelect.appendChild(opt);
-    });
-    modelStatus.textContent = `共 ${models.length} 个模型`;
-    showKeyStatus('✓ API Key 已设置，可以上传图片了', 'ok');
-  } catch (e) {
-    modelStatus.textContent = '获取失败，使用默认模型';
-    if (modelSelect.options.length === 0) {
-      const opt = document.createElement('option');
-      opt.value = 'gemini-2.5-flash';
-      opt.textContent = 'gemini-2.5-flash（默认）';
-      modelSelect.appendChild(opt);
-    }
-    logError('获取模型列表', e.message);
-  }
-}
-
-// 切换模型时保存到 localStorage
-modelSelect.addEventListener('change', () => {
-  localStorage.setItem('selected_model', modelSelect.value);
-});
-
-modelRefresh.addEventListener('click', () => {
-  if (apiKey) fetchModels(apiKey);
-});
-
-function showKeyStatus(msg, type) {
-  apikeyStatus.textContent = msg;
-  apikeyStatus.className = `apikey-status ${type}`;
-  apikeyStatus.classList.remove('hidden');
-}
-
-// ── Upload section ──
-// Drop zone: drag-and-drop only (file dialog is handled by the <label> element directly)
-const dropZone    = $('drop-zone');
-const fileInput   = $('file-input');
-const previewGrid = $('preview-grid');
-const analyzeBtn  = $('analyze-btn');
-
+// ── Upload ──
 dropZone.addEventListener('dragover', e => {
   e.preventDefault();
   dropZone.classList.add('dragover');
@@ -176,7 +182,6 @@ dropZone.addEventListener('drop', e => {
 fileInput.addEventListener('change', e => {
   const selected = [...e.target.files];
   if (selected.length > 0) addFiles(selected);
-  // Reset input so same file can be re-selected
   fileInput.value = '';
 });
 
@@ -226,7 +231,7 @@ analyzeBtn.addEventListener('click', async () => {
   const formData = new FormData();
   files.forEach(f => formData.append('files', f));
   formData.append('api_key', apiKey);
-  const selectedModel = modelSelect ? modelSelect.value : '';
+  const selectedModel = modelSelect.value;
   if (selectedModel) formData.append('model', selectedModel);
 
   try {
@@ -371,7 +376,7 @@ function startGeneration() {
     }
   };
 
-  evtSource.onerror = (e) => {
+  evtSource.onerror = () => {
     evtSource.close();
     $('progress-label').textContent = '连接中断，详见下方日志';
     logError('SSE连接', '服务器连接中断', '请检查服务是否正常运行，或刷新页面重试');

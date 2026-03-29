@@ -57,8 +57,16 @@ async def list_models(api_key: str = Query(default="")):
     key = _resolve_key(api_key)
     client = genai.Client(api_key=key)
 
-    # Preferred order: lite/flash/nano first (cheaper), pro last
-    PREFER_ORDER = ["lite", "flash", "nano", "pro"]
+    # Models known to return 404 "no longer available to new users"
+    DEPRECATED = {
+        "gemini-2.0-flash", "gemini-2.0-flash-exp",
+        "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash-002",
+        "gemini-1.5-pro",   "gemini-1.5-pro-latest",   "gemini-1.5-pro-002",
+        "gemini-1.0-pro",   "gemini-pro",
+    }
+
+    # Preferred order: lite/nano (cheapest) → flash → pro
+    PREFER_ORDER = ["lite", "nano", "flash", "pro"]
 
     def sort_key(m):
         name = (m.get("id") or "").lower()
@@ -74,9 +82,10 @@ async def list_models(api_key: str = Query(default="")):
             if "generateContent" not in supported:
                 continue
             raw_name = m.name or ""
-            # Strip "models/" prefix for display / API calls
             model_id = raw_name.replace("models/", "") if raw_name.startswith("models/") else raw_name
             if not model_id.startswith("gemini"):
+                continue
+            if model_id in DEPRECATED:
                 continue
             models.append({
                 "id": model_id,
