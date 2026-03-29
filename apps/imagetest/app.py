@@ -3,6 +3,7 @@ import json
 import os
 import uuid
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +33,7 @@ app.mount("/output", StaticFiles(directory="output"), name="output")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-def _resolve_key(request_key: str | None) -> str:
+def _resolve_key(request_key: Optional[str]) -> str:
     """Use key from request first, fall back to environment variable."""
     key = (request_key or "").strip() or os.environ.get("GOOGLE_API_KEY", "")
     if not key:
