@@ -74,7 +74,7 @@ class ProductDetector:
         if not key:
             raise RuntimeError("GOOGLE_API_KEY not provided")
         genai.configure(api_key=key)
-        self.model = genai.GenerativeModel("gemini-2.0-flash")
+        self.model = genai.GenerativeModel("gemini-1.5-flash")
 
     async def analyze(self, image_paths: list[str]) -> dict:
         """Analyze product images and return structured profile dict."""
