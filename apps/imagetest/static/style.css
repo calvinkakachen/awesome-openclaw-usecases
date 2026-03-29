@@ -321,6 +321,36 @@ main {
 .apikey-status.ok    { color: var(--success); }
 .apikey-status.error { color: #ef4444; }
 
+/* Model selector */
+.model-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.model-label {
+  font-size: .875rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.model-select {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: .875rem;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+}
+.model-select:focus { border-color: var(--primary); }
+.btn-sm { padding: 6px 12px; font-size: .8rem; }
+.model-status { font-size: .8rem; color: var(--muted); }
+
 /* Locked state */
 .card.locked {
   opacity: .5;

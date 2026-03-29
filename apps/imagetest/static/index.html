@@ -34,6 +34,14 @@
         <button id="apikey-save" class="btn btn-primary" type="button">确认</button>
       </div>
       <p id="apikey-status" class="apikey-status hidden"></p>
+
+      <!-- Model selector -->
+      <div id="model-row" class="model-row hidden">
+        <label class="model-label" for="model-select">识别模型</label>
+        <select id="model-select" class="model-select"></select>
+        <button id="model-refresh" class="btn btn-secondary btn-sm" type="button" title="重新获取模型列表">↻</button>
+        <span id="model-status" class="model-status"></span>
+      </div>
     </section>
 
     <!-- ── Step 1: Upload ── -->

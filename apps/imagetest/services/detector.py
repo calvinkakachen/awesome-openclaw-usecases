@@ -68,15 +68,16 @@ PRODUCT TYPE RULES:
 If confidence is "low", set product_type to your best guess and explain in detection_reason.
 """
 
-MODEL = "gemini-2.0-flash"
+DEFAULT_MODEL = "gemini-2.5-flash"
 
 
 class ProductDetector:
-    def __init__(self, api_key: str = ""):
+    def __init__(self, api_key: str = "", model: str = ""):
         key = api_key.strip() or os.environ.get("GOOGLE_API_KEY", "")
         if not key:
             raise RuntimeError("GOOGLE_API_KEY not provided")
         self.client = genai.Client(api_key=key)
+        self.model = (model.strip() or os.environ.get("GEMINI_MODEL", "") or DEFAULT_MODEL)
 
     async def analyze(self, image_paths: List[str]) -> dict:
         """Analyze product images and return structured profile dict."""
@@ -90,7 +91,7 @@ class ProductDetector:
         contents.append(types.Part.from_text(text=DETECTION_PROMPT))
 
         response = self.client.models.generate_content(
-            model=MODEL,
+            model=self.model,
             contents=contents,
         )
         raw = response.text.strip()

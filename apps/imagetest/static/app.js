@@ -81,9 +81,52 @@ apikeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') apikeySave
 
 function activateKey(key) {
   apiKey = key;
-  showKeyStatus('✓ API Key 已设置，可以上传图片了', 'ok');
+  showKeyStatus('✓ API Key 已设置，正在获取可用模型…', 'ok');
   uploadSection.classList.remove('locked');
+  fetchModels(key);
 }
+
+// ── Model selector ──
+const modelRow     = $('model-row');
+const modelSelect  = $('model-select');
+const modelRefresh = $('model-refresh');
+const modelStatus  = $('model-status');
+
+async function fetchModels(key) {
+  modelStatus.textContent = '获取中…';
+  modelRow.classList.remove('hidden');
+  try {
+    const res = await fetch(`/api/models?api_key=${encodeURIComponent(key)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+    const models = data.models || [];
+    if (models.length === 0) throw new Error('未找到可用模型');
+
+    modelSelect.innerHTML = '';
+    models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.display_name || m.id;
+      modelSelect.appendChild(opt);
+    });
+    modelStatus.textContent = `共 ${models.length} 个模型`;
+    showKeyStatus('✓ API Key 已设置，可以上传图片了', 'ok');
+  } catch (e) {
+    modelStatus.textContent = '获取失败，使用默认模型';
+    // Add default fallback option
+    if (modelSelect.options.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = 'gemini-2.5-flash';
+      opt.textContent = 'gemini-2.5-flash（默认）';
+      modelSelect.appendChild(opt);
+    }
+    logError('获取模型列表', e.message);
+  }
+}
+
+modelRefresh.addEventListener('click', () => {
+  if (apiKey) fetchModels(apiKey);
+});
 
 function showKeyStatus(msg, type) {
   apikeyStatus.textContent = msg;
@@ -167,6 +210,8 @@ analyzeBtn.addEventListener('click', async () => {
   const formData = new FormData();
   files.forEach(f => formData.append('files', f));
   formData.append('api_key', apiKey);
+  const selectedModel = modelSelect ? modelSelect.value : '';
+  if (selectedModel) formData.append('model', selectedModel);
 
   try {
     const res = await fetch('/api/analyze', { method: 'POST', body: formData });

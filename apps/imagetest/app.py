@@ -10,6 +10,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from google import genai
 from starlette.requests import Request
 from starlette.responses import StreamingResponse
 
@@ -50,10 +51,49 @@ async def index():
     return FileResponse("static/index.html")
 
 
+@app.get("/api/models")
+async def list_models(api_key: str = Query(default="")):
+    """Return Gemini models that support generateContent, sorted by preference."""
+    key = _resolve_key(api_key)
+    client = genai.Client(api_key=key)
+
+    # Preferred order: lite/flash/nano first (cheaper), pro last
+    PREFER_ORDER = ["lite", "flash", "nano", "pro"]
+
+    def sort_key(m):
+        name = (m.get("id") or "").lower()
+        for i, kw in enumerate(PREFER_ORDER):
+            if kw in name:
+                return i
+        return len(PREFER_ORDER)
+
+    models = []
+    try:
+        for m in client.models.list():
+            supported = getattr(m, "supported_actions", None) or []
+            if "generateContent" not in supported:
+                continue
+            raw_name = m.name or ""
+            # Strip "models/" prefix for display / API calls
+            model_id = raw_name.replace("models/", "") if raw_name.startswith("models/") else raw_name
+            if not model_id.startswith("gemini"):
+                continue
+            models.append({
+                "id": model_id,
+                "display_name": getattr(m, "display_name", None) or model_id,
+            })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取模型列表失败: {str(e)}")
+
+    models.sort(key=sort_key)
+    return JSONResponse({"models": models})
+
+
 @app.post("/api/analyze")
 async def analyze(
     files: List[UploadFile] = File(...),
     api_key: str = Form(default=""),
+    model: str = Form(default=""),
 ):
     """Upload product images → Gemini Vision detects type and extracts profile."""
     if not files:
@@ -74,7 +114,7 @@ async def analyze(
         saved_paths.append(str(dest))
 
     try:
-        detector = ProductDetector(api_key=key)
+        detector = ProductDetector(api_key=key, model=model)
         profile = await detector.analyze(saved_paths)
     except Exception as e:
         tb = traceback.format_exc()
