@@ -1,9 +1,10 @@
 import asyncio
 import json
 import os
+import traceback
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,7 +52,7 @@ async def index():
 
 @app.post("/api/analyze")
 async def analyze(
-    files: list[UploadFile] = File(...),
+    files: List[UploadFile] = File(...),
     api_key: str = Form(default=""),
 ):
     """Upload product images → Gemini Vision detects type and extracts profile."""
@@ -66,16 +67,21 @@ async def analyze(
 
     saved_paths = []
     for f in files:
-        if not f.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail=f"{f.filename} is not an image")
-        dest = session_upload_dir / f.filename
+        if not f.content_type or not f.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail=f"{f.filename} 不是图片格式")
+        dest = session_upload_dir / (f.filename or f"file_{len(saved_paths)}.jpg")
         dest.write_bytes(await f.read())
         saved_paths.append(str(dest))
 
-    detector = ProductDetector(api_key=key)
-    profile = await detector.analyze(saved_paths)
-    profile["session_id"] = session_id
+    try:
+        detector = ProductDetector(api_key=key)
+        profile = await detector.analyze(saved_paths)
+    except Exception as e:
+        tb = traceback.format_exc()
+        print(f"[analyze error]\n{tb}")
+        raise HTTPException(status_code=500, detail=f"AI识别失败: {str(e)}")
 
+    profile["session_id"] = session_id
     profile_path = session_upload_dir / "product-profile.json"
     profile_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2))
 

@@ -170,7 +170,11 @@ analyzeBtn.addEventListener('click', async () => {
 
   try {
     const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-    const body = await res.json();
+    const text = await res.text();
+    let body;
+    try { body = JSON.parse(text); } catch (_) {
+      throw new Error(`服务器返回非 JSON 响应 (HTTP ${res.status}): ${text.slice(0, 300)}`);
+    }
     if (!res.ok) {
       throw new Error(body.detail || `HTTP ${res.status}`);
     }
