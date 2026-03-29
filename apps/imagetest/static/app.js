@@ -83,16 +83,23 @@ async function fetchModels(key) {
     if (models.length === 0) throw new Error('未找到可用模型');
 
     const savedModel = localStorage.getItem('selected_model');
+    const validIds = new Set(models.map(m => m.id));
+
+    // Clear stale saved model if it's no longer in the valid list
+    if (savedModel && !validIds.has(savedModel)) {
+      localStorage.removeItem('selected_model');
+    }
+
     modelSelect.innerHTML = '';
     models.forEach(m => {
       const opt = document.createElement('option');
       opt.value = m.id;
       opt.textContent = m.display_name || m.id;
-      if (m.id === savedModel) opt.selected = true;
+      if (m.id === savedModel && validIds.has(savedModel)) opt.selected = true;
       modelSelect.appendChild(opt);
     });
-    // Save default selection if nothing was saved before
-    if (!savedModel && modelSelect.options.length > 0) {
+    // Always save current selection
+    if (modelSelect.options.length > 0) {
       localStorage.setItem('selected_model', modelSelect.value);
     }
     modelStatus.textContent = `共 ${models.length} 个模型`;
