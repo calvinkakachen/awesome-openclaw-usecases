@@ -1,4 +1,4 @@
-/* Amazon Image Auto — Frontend */
+/* imagetest — Frontend */
 
 const $ = id => document.getElementById(id);
 
@@ -8,14 +8,53 @@ let sessionId = null;
 let manifest = null;
 let apiKey = '';
 
+// ── Error log ──
+function logError(context, message, detail = '') {
+  const section = $('log-section');
+  section.classList.remove('hidden');
+
+  const ts = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  const fullText = `[${ts}] ${context}: ${message}${detail ? '\n' + detail : ''}`;
+
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <div class="log-meta">
+      <span class="log-ts">${ts}</span>
+      <span class="log-ctx">${context}</span>
+      <button class="log-copy-btn" title="复制错误信息">复制</button>
+    </div>
+    <div class="log-msg">${escHtml(message)}</div>
+    ${detail ? `<pre class="log-detail">${escHtml(detail)}</pre>` : ''}
+  `;
+
+  entry.querySelector('.log-copy-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(fullText).then(() => {
+      const btn = entry.querySelector('.log-copy-btn');
+      btn.textContent = '已复制 ✓';
+      setTimeout(() => { btn.textContent = '复制'; }, 1500);
+    });
+  });
+
+  $('log-list').prepend(entry);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+$('log-clear-btn').addEventListener('click', () => {
+  $('log-list').innerHTML = '';
+  $('log-section').classList.add('hidden');
+});
+
 // ── API Key section ──
-const apikeyInput  = $('apikey-input');
-const apikeyToggle = $('apikey-toggle');
-const apikeySave   = $('apikey-save');
-const apikeyStatus = $('apikey-status');
+const apikeyInput   = $('apikey-input');
+const apikeyToggle  = $('apikey-toggle');
+const apikeySave    = $('apikey-save');
+const apikeyStatus  = $('apikey-status');
 const uploadSection = $('upload-section');
 
-// Restore from sessionStorage (stays for current tab only)
 const saved = sessionStorage.getItem('google_api_key');
 if (saved) {
   apikeyInput.value = saved;
@@ -30,21 +69,15 @@ apikeyToggle.addEventListener('click', () => {
 
 apikeySave.addEventListener('click', () => {
   const key = apikeyInput.value.trim();
-  if (!key) {
-    showKeyStatus('请输入 API Key', 'error');
-    return;
-  }
+  if (!key) { showKeyStatus('请输入 API Key', 'error'); return; }
   if (!key.startsWith('AIza')) {
-    showKeyStatus('格式不对，Google API Key 通常以 AIza 开头', 'error');
-    return;
+    showKeyStatus('格式不对，Google API Key 通常以 AIza 开头', 'error'); return;
   }
   sessionStorage.setItem('google_api_key', key);
   activateKey(key);
 });
 
-apikeyInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') apikeySave.click();
-});
+apikeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') apikeySave.click(); });
 
 function activateKey(key) {
   apiKey = key;
@@ -59,13 +92,11 @@ function showKeyStatus(msg, type) {
 }
 
 // ── Upload section ──
+// Drop zone: drag-and-drop only (file dialog is handled by the <label> element directly)
 const dropZone    = $('drop-zone');
 const fileInput   = $('file-input');
 const previewGrid = $('preview-grid');
 const analyzeBtn  = $('analyze-btn');
-
-dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => addFiles([...e.target.files]));
 
 dropZone.addEventListener('dragover', e => {
   e.preventDefault();
@@ -75,7 +106,19 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
   dropZone.classList.remove('dragover');
-  addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+  const dropped = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+  if (dropped.length === 0) {
+    logError('文件上传', '所选文件不是图片格式', '仅支持 JPG / PNG / WEBP');
+    return;
+  }
+  addFiles(dropped);
+});
+
+fileInput.addEventListener('change', e => {
+  const selected = [...e.target.files];
+  if (selected.length > 0) addFiles(selected);
+  // Reset input so same file can be re-selected
+  fileInput.value = '';
 });
 
 function addFiles(newFiles) {
@@ -113,7 +156,10 @@ function renderPreviews() {
 // ── Analyze ──
 analyzeBtn.addEventListener('click', async () => {
   if (files.length === 0) return;
-  if (!apiKey) { alert('请先输入 Google API Key'); return; }
+  if (!apiKey) {
+    logError('识别', '未设置 API Key', '请先在顶部输入 Google API Key');
+    return;
+  }
 
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = '识别中…';
@@ -124,15 +170,14 @@ analyzeBtn.addEventListener('click', async () => {
 
   try {
     const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+    const body = await res.json();
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || '识别失败');
+      throw new Error(body.detail || `HTTP ${res.status}`);
     }
-    const profile = await res.json();
-    sessionId = profile.session_id;
-    showDetection(profile);
+    sessionId = body.session_id;
+    showDetection(body);
   } catch (e) {
-    alert('识别出错：' + e.message);
+    logError('识别失败', e.message, e.stack || '');
     analyzeBtn.disabled = false;
     analyzeBtn.textContent = '开始识别';
   }
@@ -162,20 +207,20 @@ function showDetection(profile) {
       <span class="detection-badge badge-${type}">${typeLabels[type] || type}</span>
     </div>
     <div class="detection-meta">
-      <strong>${profile.product_name || '产品'}</strong> ·
-      类别：${profile.category || '–'} ·
-      材质：${profile.material || '–'} ·
+      <strong>${escHtml(profile.product_name || '产品')}</strong> ·
+      类别：${escHtml(profile.category || '–')} ·
+      材质：${escHtml(profile.material || '–')} ·
       识别置信度：${confidenceLabel}
     </div>
     <div class="detection-meta" style="font-style:italic;color:#888;">
-      ${profile.detection_reason || ''}
+      ${escHtml(profile.detection_reason || '')}
     </div>
     <div class="profile-pills">
-      ${profile.surface ? `<span class="pill"><strong>表面</strong> ${profile.surface}</span>` : ''}
+      ${profile.surface ? `<span class="pill"><strong>表面</strong> ${escHtml(profile.surface)}</span>` : ''}
       ${profile.opacity_percent != null ? `<span class="pill"><strong>透光率</strong> ${profile.opacity_percent}%</span>` : ''}
-      ${profile.dimensions_note ? `<span class="pill"><strong>尺寸</strong> ${profile.dimensions_note}</span>` : ''}
+      ${profile.dimensions_note ? `<span class="pill"><strong>尺寸</strong> ${escHtml(profile.dimensions_note)}</span>` : ''}
       ${colors.length ? `<span class="pill"><strong>色系</strong> ${colorSwatches}</span>` : ''}
-      ${(profile.key_features || []).map(f => `<span class="pill">${f}</span>`).join('')}
+      ${(profile.key_features || []).map(f => `<span class="pill">${escHtml(f)}</span>`).join('')}
     </div>
   `;
 }
@@ -204,7 +249,13 @@ function startGeneration() {
   let current = 0;
 
   evtSource.onmessage = e => {
-    const event = JSON.parse(e.data);
+    let event;
+    try {
+      event = JSON.parse(e.data);
+    } catch (err) {
+      logError('SSE解析', '无法解析服务器消息', e.data);
+      return;
+    }
 
     if (event.type === 'progress') {
       total = event.total;
@@ -216,7 +267,7 @@ function startGeneration() {
       const card = document.createElement('div');
       card.className = 'result-card generating';
       card.id = `card-${current}`;
-      card.innerHTML = `<img src="" alt="" /><div class="card-label">${event.step}</div>`;
+      card.innerHTML = `<img src="" alt="" /><div class="card-label">${escHtml(event.step)}</div>`;
       $('live-grid').appendChild(card);
     }
 
@@ -237,6 +288,7 @@ function startGeneration() {
         card.style.background = '#fff0f0';
         card.querySelector('.card-label').textContent = '⚠ 生成失败';
       }
+      logError(`图片生成 — ${event.filename || ''}`, event.message || '生成失败');
     }
 
     if (event.type === 'done') {
@@ -249,20 +301,22 @@ function startGeneration() {
 
     if (event.type === 'error') {
       evtSource.close();
-      $('progress-label').textContent = '⚠ 错误：' + event.message;
+      $('progress-label').textContent = '⚠ 生成出错，详见下方日志';
+      logError('图集生成', event.message || '未知错误');
     }
   };
 
-  evtSource.onerror = () => {
+  evtSource.onerror = (e) => {
     evtSource.close();
-    $('progress-label').textContent = '连接中断，请刷新重试';
+    $('progress-label').textContent = '连接中断，详见下方日志';
+    logError('SSE连接', '服务器连接中断', '请检查服务是否正常运行，或刷新页面重试');
   };
 }
 
 function createCard(event) {
   const card = document.createElement('div');
   card.className = 'result-card';
-  card.innerHTML = `<img src="" alt="" /><div class="card-label">${event.label}</div>`;
+  card.innerHTML = `<img src="" alt="" /><div class="card-label">${escHtml(event.label)}</div>`;
   $('live-grid').appendChild(card);
   return card;
 }
@@ -272,16 +326,16 @@ function showResults() {
   $('progress-section').classList.add('hidden');
   $('results-section').classList.remove('hidden');
 
-  const files = (manifest && manifest.files) || [];
-  $('results-count').textContent = `共 ${files.length} 张图片`;
+  const fileList = (manifest && manifest.files) || [];
+  $('results-count').textContent = `共 ${fileList.length} 张图片`;
 
-  const folders = [...new Set(files.map(f => f.folder))];
+  const folders = [...new Set(fileList.map(f => f.folder))];
   const tabBar = $('tab-bar');
   tabBar.innerHTML = '';
   tabBar.appendChild(createTab('全部', 'all', true));
   folders.forEach(folder => tabBar.appendChild(createTab(folderLabel(folder), folder, false)));
 
-  renderResultGrid('all', files);
+  renderResultGrid('all', fileList);
 
   $('download-btn').onclick = () => {
     window.location.href = `/api/download/${sessionId}`;
@@ -300,17 +354,17 @@ function createTab(label, value, active) {
   return btn;
 }
 
-function renderResultGrid(folder, files) {
+function renderResultGrid(folder, fileList) {
   const grid = $('result-grid');
   grid.innerHTML = '';
-  const filtered = folder === 'all' ? files : files.filter(f => f.folder === folder);
+  const filtered = folder === 'all' ? fileList : fileList.filter(f => f.folder === folder);
   filtered.forEach(file => {
     const card = document.createElement('div');
     card.className = 'result-card';
     card.style.cursor = 'pointer';
     card.innerHTML = `
-      <img src="${file.url}?t=${Date.now()}" alt="${file.label}" loading="lazy" />
-      <div class="card-label">${file.label}</div>
+      <img src="${file.url}?t=${Date.now()}" alt="${escHtml(file.label)}" loading="lazy" />
+      <div class="card-label">${escHtml(file.label)}</div>
       <div class="card-folder">${folderLabel(file.folder)} · ${file.dimensions || ''}</div>
     `;
     card.querySelector('img').addEventListener('click', () => window.open(file.url, '_blank'));
